@@ -1,0 +1,5 @@
+*.pro.user
+qresExtract
+.qmake.stash
+Makefile
+*.o

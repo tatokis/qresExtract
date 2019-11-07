@@ -19,6 +19,10 @@
 #include <QDebug>
 #include <QTextStream>
 
+#if QT_VERSION < QT_VERSION_CHECK(5, 5, 0)
+#define qInfo       qDebug
+#endif
+
 QTextStream cout(stdout);
 
 void copyFiles(QString dest, QTextStream &qrc, const QString &source = ":/mnt")
@@ -53,13 +57,13 @@ void copyFiles(QString dest, QTextStream &qrc, const QString &source = ":/mnt")
 
             if(!QFile::copy(file.absoluteFilePath(), destFileName))
             {
-                qDebug() << "Could not write" << destFileName;
+                qInfo() << "Could not write" << destFileName;
                 continue;
             }
 
             // We need to set the permissions (644) as they are read only by default
             if(!QFile::setPermissions(destFileName, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ReadGroup | QFileDevice::ReadOther))
-                qDebug() << "Couldn't set permissions for" << destFileName;
+                qInfo() << "Couldn't set permissions for" << destFileName;
         }
     }
 }
@@ -68,7 +72,7 @@ int main(int argc, char *argv[])
 {
     if(argc < 2)
     {
-        qDebug() << "Usage: ./qresExtract <resource.bin> [output path]";
+        qInfo() << "Usage: ./qresExtract <resource.bin> [output path]";
         return 1;
     }
 
@@ -78,16 +82,25 @@ int main(int argc, char *argv[])
         QFile file(fileStr);
         if(!file.exists())
         {
-            qDebug() << "No such file exists.";
+            qInfo() << "No such file exists.";
             return 1;
         }
         fileName = QFileInfo(file).baseName();
-    }
 
-    if(!QResource::registerResource(fileStr, "/mnt"))
-    {
-        qDebug() << "Could not load" << fileStr;
-        return 1;
+        if(!QResource::registerResource(fileStr, "/mnt"))
+        {
+            qInfo() << "Could not load" << fileStr;
+            qInfo() << "This may be because your version of Qt doesn't support this qres version";
+            if(file.open(QIODevice::ReadOnly))
+            {
+                file.seek(0x7);
+                uchar ver = file.read(1)[0];
+                qInfo() << "qres version of this file is" << ver;
+                if(ver == 3)
+                    qInfo() << "Version 3 requires at least Qt 5.13. You are using Qt" << QT_VERSION_STR;
+            }
+            return 1;
+        }
     }
 
     QString outPath(".");
@@ -107,7 +120,7 @@ int main(int argc, char *argv[])
     QFile qrcFile(outPath + "/" + fileName + ".qrc");
     if(!qrcFile.open(QIODevice::WriteOnly))
     {
-        qDebug() << "Unable to open" << qrcFile.fileName();
+        qInfo() << "Unable to open" << qrcFile.fileName();
         return 1;
     }
 
